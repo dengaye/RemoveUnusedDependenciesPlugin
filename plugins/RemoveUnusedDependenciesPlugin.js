@@ -18,11 +18,11 @@ class RemoveUnusedDependenciesPlugin {
           if (this.targetEntries && !this.targetEntries.includes(entryName)) return;
           entryModules.set(entryName, new Set());
           entrypoint.chunks.forEach(chunk => {
-            chunk.forEachModule(module => {
+            for (const module of chunk.modulesIterable) {
               if (module.resource) {
                 entryModules.get(entryName).add(module);
               }
-            });
+            }
           });
         });
       });
@@ -39,18 +39,18 @@ class RemoveUnusedDependenciesPlugin {
             const remainingModules = [];
             const newChunkName = `${entryName}-vendors`;
 
-            vendorsChunk.forEachModule(module => {
+            for (const module of vendorsChunk.modulesIterable) {
               if (usedModules.has(module)) {
                 remainingModules.push(module);
               } else {
                 module.reasons = module.reasons.filter(reason => reason.module !== vendorsChunk.entryModule);
               }
-            });
+            }
 
             const vendorsChunkModulesSet = new Set();
-            vendorsChunk.forEachModule(module => {
+            for (const module of vendorsChunk.modulesIterable) {
               vendorsChunkModulesSet.add(module);
-            });
+            }
 
             const remainingModulesSet = new Set(remainingModules);
 
@@ -63,7 +63,7 @@ class RemoveUnusedDependenciesPlugin {
             };
 
             if (areSetsEqual(remainingModulesSet, vendorsChunkModulesSet)) {
-              compilation.entrypoints.get(entryName).chunks.push(vendorsChunk);
+              vendorsChunk.addGroup(compilation.entrypoints.get(entryName));
               return;
             }
 
@@ -75,26 +75,25 @@ class RemoveUnusedDependenciesPlugin {
               });
 
               if (existingChunk) {
-                compilation.entrypoints.get(entryName).chunks.push(existingChunk);
-
-                const entrypointChunks = compilation.entrypoints.get(entryName).chunks;
-                const index = entrypointChunks.indexOf(vendorsChunk);
-                if (index > -1) {
-                  entrypointChunks.splice(index, 1);
-                }
-
+                const entrypoint = compilation.entrypoints.get(entryName);
+                entrypoint.chunks = entrypoint.chunks.filter(chunk => chunk !== vendorsChunk);
+                entrypoint.chunks.push(existingChunk);
               } else {
                 const newVendorsChunk = compilation.addChunk(newChunkName);
                 newVendorsChunk.chunkReason = 'Extracted remaining vendors modules';
 
-                remainingModules.forEach(module => {
+                for (const module of remainingModules) {
                   GraphHelpers.connectChunkAndModule(newVendorsChunk, module);
-                });
+                }
 
                 chunksToMerge.set(newVendorsChunk, new Set(remainingModules));
 
+                // const entrypoint = compilation.entrypoints.get(entryName);
+                // entrypoint.chunks = entrypoint.chunks.filter(chunk => chunk !== vendorsChunk);
+                // entrypoint.chunks.push(newVendorsChunk);
+
                 const entrypoint = compilation.entrypoints.get(entryName);
-                entrypoint.chunks.push(newVendorsChunk);
+                newVendorsChunk.addGroup(entrypoint);
 
                 HtmlWebpackPlugin.getHooks(compilation).beforeEmit.tapAsync(
                   'RemoveUnusedDependenciesPlugin',
@@ -105,25 +104,19 @@ class RemoveUnusedDependenciesPlugin {
                     cb(null, data);
                   }
                 );
-
-                const entrypointChunks = entrypoint.chunks;
-                const index = entrypointChunks.indexOf(vendorsChunk);
-                if (index > -1) {
-                  entrypointChunks.splice(index, 1);
-                }
               }
             }
           });
 
-          vendorsChunk.forEachModule(module => {
+          for (const module of vendorsChunk.modulesIterable) {
             module.reasons = module.reasons.filter(reason => reason.module !== vendorsChunk.entryModule);
-          });
+          }
 
           if (vendorsChunk.getNumberOfModules() === 0) {
             vendorsChunk.files.forEach(file => {
               delete compilation.assets[file];
             });
-            chunks.splice(chunks.indexOf(vendorsChunk), 1);
+            compilation.chunks.splice(compilation.chunks.indexOf(vendorsChunk), 1);
           }
         }
       });
