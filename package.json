@@ -1,0 +1,23 @@
+{
+  "name": "plit-chunk-plugin-webpack",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "rm -rf dist & webpack --config webpack.config.js"
+  },
+  "devDependencies": {
+    "css-loader": "3.6.0",
+    "html-webpack-plugin": "4.5.0",
+    "mini-css-extract-plugin": "0.12.0",
+    "webpack": "4.44.2",
+    "webpack-bundle-analyzer": "4.10.2",
+    "webpack-cli": "3.3.0"
+  },
+  "dependencies": {
+    "animejs": "^3.2.2",
+    "bootstrap": "5.3.3",
+    "jquery": "3.7.1",
+    "lodash": "4.17.21"
+  }
+}
